@@ -33,12 +33,6 @@ const BAND_OFFSET: Record<LayerType, number> = {
 
 const NODATA = -9999.0;
 
-function getWeekIndex(date: Date): number {
-  const start  = new Date(date.getFullYear(), 0, 1);
-  const dayIdx = Math.floor((date.getTime() - start.getTime()) / 86400000);
-  return Math.min(Math.floor(dayIdx / 7), N_WEEKS - 1);
-}
-
 function dateFromWeek(year: number, weekIndex: number): Date {
   const start = new Date(year, 0, 1);
   start.setDate(1 + weekIndex * 7);
@@ -60,10 +54,6 @@ function getBandIdx(weekIndex: number, layer: LayerType): number {
 
 function formatDateShort(date: Date): string {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-}
-
-function daysInMonth(m: number, y: number): number {
-  return new Date(y, m + 1, 0).getDate();
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -115,11 +105,6 @@ const LULC_CLASSES = [
 
 const YEARS       = [2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const WEEK_MONTH_LABELS = Array.from({ length: N_WEEKS }, (_, i) => {
-  const d = new Date(2024, 0, 1 + i * 7);
-  return MONTH_NAMES[d.getMonth()];
-});
-
 const sectionLabel: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, color: "#374151",
   marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em",
@@ -931,7 +916,7 @@ const HoverTooltip = React.memo(({ currentWeekBands, width, height, bbox, weekIn
       const footer = `<div style="padding:3px 10px 5px;border-top:1px solid #f1f5f9"><span style="font-size:8px;color:#d1d5db">▲▼ vs ${year} annual avg · px(${x},${y})</span></div>`;
 
       // Helper: format annual diff arrow
-      const diff = (val: number, annual: number | undefined, fmt: (v: number) => string): string => {
+      const diff = (val: number, annual: number | undefined): string => {
         if (annual == null) return "";
         const d = val - annual;
         const col = d > 0 ? "#ef4444" : "#22c55e";
@@ -962,13 +947,13 @@ const HoverTooltip = React.memo(({ currentWeekBands, width, height, bbox, weekIn
           lst !== null
             ? `<div style="margin-bottom:6px">
                 <div style="font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">🌡 Temp</div>
-                <div style="font-size:17px;font-weight:900;color:#ea580c;font-family:monospace;line-height:1.15">${lst.toFixed(1)}°C${diff(lst, am?.lst, v => v.toFixed(1)+"°C")}</div>
+                <div style="font-size:17px;font-weight:900;color:#ea580c;font-family:monospace;line-height:1.15">${lst.toFixed(1)}°C${diff(lst, am?.lst)}</div>
                </div>`
             : `<div style="margin-bottom:6px"><div style="font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase">🌡 Temp</div><div style="font-size:13px;color:#d1d5db;font-family:monospace">—</div></div>`,
           rain !== null
             ? `<div style="margin-bottom:6px">
                 <div style="font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">🌧 Rain</div>
-                <div style="font-size:13px;font-weight:700;color:#0284c7;font-family:monospace">${rain.toFixed(1)} mm${diff(rain, am?.rain, v => v.toFixed(1))}</div>
+                <div style="font-size:13px;font-weight:700;color:#0284c7;font-family:monospace">${rain.toFixed(1)} mm${diff(rain, am?.rain)}</div>
                </div>`
             : "",
           lulc !== null
@@ -984,19 +969,19 @@ const HoverTooltip = React.memo(({ currentWeekBands, width, height, bbox, weekIn
           ndvi !== null
             ? `<div style="margin-bottom:6px">
                 <div style="font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">🌿 NDVI</div>
-                <div style="font-size:13px;font-weight:700;color:#16a34a;font-family:monospace">${ndvi.toFixed(3)}${diff(ndvi, am?.ndvi, v => v.toFixed(3))}</div>
+                <div style="font-size:13px;font-weight:700;color:#16a34a;font-family:monospace">${ndvi.toFixed(3)}${diff(ndvi, am?.ndvi)}</div>
                </div>`
             : "",
           soil !== null
             ? `<div style="margin-bottom:6px">
                 <div style="font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">🌱 Soil</div>
-                <div style="font-size:13px;font-weight:700;color:#65a30d;font-family:monospace">${(soil*100).toFixed(1)}%${diff(soil, am?.soil, v => (v*100).toFixed(1)+"%")}</div>
+                <div style="font-size:13px;font-weight:700;color:#65a30d;font-family:monospace">${(soil*100).toFixed(1)}%${diff(soil, am?.soil)}</div>
                </div>`
             : "",
           water !== null
             ? `<div>
                 <div style="font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">💧 Water</div>
-                <div style="font-size:13px;font-weight:700;color:#0891b2;font-family:monospace">${water.toFixed(1)}%${diff(water, am?.water, v => v.toFixed(1)+"%")}</div>
+                <div style="font-size:13px;font-weight:700;color:#0891b2;font-family:monospace">${water.toFixed(1)}%${diff(water, am?.water)}</div>
                </div>`
             : "",
         ].join("");
@@ -1025,19 +1010,19 @@ ${TOOLTIP_STYLE}
 
       if (activeLayer === "ndvi") {
         accentColor = "#16a34a";
-        valDisplay    = val !== null ? `${val.toFixed(3)}${diff(val, am?.ndvi, v => v.toFixed(3))}` : "—";
+        valDisplay    = val !== null ? `${val.toFixed(3)}${diff(val, am?.ndvi)}` : "—";
         annualDisplay = am ? am.ndvi.toFixed(3) : "—";
       } else if (activeLayer === "rain") {
         accentColor = "#0284c7";
-        valDisplay    = val !== null ? `${val.toFixed(1)} mm${diff(val, am?.rain, v => v.toFixed(1))}` : "—";
+        valDisplay    = val !== null ? `${val.toFixed(1)} mm${diff(val, am?.rain)}` : "—";
         annualDisplay = am ? `${am.rain.toFixed(1)} mm` : "—";
       } else if (activeLayer === "soil") {
         accentColor = "#65a30d";
-        valDisplay    = val !== null ? `${(val*100).toFixed(1)}%${diff(val, am?.soil, v => (v*100).toFixed(1)+"%")}` : "—";
+        valDisplay    = val !== null ? `${(val*100).toFixed(1)}%${diff(val, am?.soil)}` : "—";
         annualDisplay = am ? `${(am.soil*100).toFixed(1)}%` : "—";
       } else if (activeLayer === "water") {
         accentColor = "#0891b2";
-        valDisplay    = val !== null ? `${val.toFixed(1)}%${diff(val, am?.water, v => v.toFixed(1)+"%")}` : "—";
+        valDisplay    = val !== null ? `${val.toFixed(1)}%${diff(val, am?.water)}` : "—";
         annualDisplay = am ? `${am.water.toFixed(1)}%` : "—";
       } else if (activeLayer === "lulc") {
         accentColor = "#7c3aed";
